@@ -3,7 +3,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class settings(BaseSettings):
 
     # Application settings
-    APP_NAME: str = "LegalBot"
+    APP_NAME: str = "SanadApp"
     APP_VERSION: str
 
     # File upload settings
@@ -43,7 +43,7 @@ class settings(BaseSettings):
     VECTOR_DB_PORT: int = 6333
     VECTOR_DB_GRPC_PORT: int = 6334
     VECTOR_DB_DISTANCE_METHOD: str
-    VECTOR_DB_COLLECTION: str = "legalbot"
+    VECTOR_DB_COLLECTION: str = "sanadapp"
 
     class Config:
         env_file = ".env"
