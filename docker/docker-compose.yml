@@ -23,7 +23,7 @@ services:
       start_period: 40s
 
 networks:
-  backend:
+  SanadApp_backend:
 
 volumes:
   SanadApp_qdrant_storage:
