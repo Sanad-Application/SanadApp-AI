@@ -18,6 +18,7 @@ class settings(BaseSettings):
     # LLM settings
     GENERATION_BACKEND: str
     EMBEDDING_BACKEND: str
+    SUMMARIZATION_BACKEND: str
 
     OPENAI_API_KEY: str = None
     OPENAI_API_URL: str = None
@@ -25,6 +26,7 @@ class settings(BaseSettings):
     GEMINI_API_KEY: str = None
 
     GENERATION_MODEL_ID: str = None
+    SUMMARIZATION_MODEL_ID: str = None
     EMBEDDING_MODEL_ID: str = None
     EMBEDDING_SIZE: int = None
     DEFAULT_MAX_INPUT_CHARACTERS: int = None
