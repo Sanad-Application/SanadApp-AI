@@ -13,7 +13,7 @@ services:
       - QDRANT__SERVICE__GRPC_PORT=6334
       - QDRANT__LOG_LEVEL=INFO
     networks:
-      - backend
+      - SanadApp_backend
     restart: always
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
