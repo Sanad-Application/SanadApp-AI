@@ -1,7 +1,6 @@
 from string import Template
 
 #### System ####
-
 system_prompt = Template("\n".join([
     "أنت مساعد لتوليد رد للمستخدم.",
     "ستحصل على مجموعة من المستندات المرتبطة باستفسار المستخدم.",

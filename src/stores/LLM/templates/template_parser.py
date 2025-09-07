@@ -8,17 +8,15 @@ class TemplateParser:
         self.lang = None
 
         self.set_language(lang)
-
     
     def set_language(self, lang: str):
-        if not lang:
-            self.lang = self.default_lang
-
-        language_path = os.path.join(self.current_path, "locales", lang)
-        if os.path.exists(language_path):
-            self.lang = lang
-        else:
-            self.lang = self.default_lang
+        if lang:
+            language_path = os.path.join(self.current_path, "locales", lang)
+            if os.path.exists(language_path):
+                self.lang = lang
+                return
+        # fallback
+        self.lang = self.default_lang
 
     def get(self, group: str, key: str, vars: dict={}):
         if not group or not key:

@@ -8,14 +8,15 @@ class CoHereProvider(LLMInterface):
     def __init__(self, api_key: str,
                        default_max_input_characters: int=1000,
                        default_max_output_tokens: int=1000,
-                       temperature: float=0.1):
+                       default_temperature: float=0.1):
         
         self.api_key = api_key
         self.default_max_input_characters = default_max_input_characters
         self.default_max_output_tokens = default_max_output_tokens
-        self.temperature = temperature
+        self.default_temperature = default_temperature
 
         self.generation_model_id = None
+        self.summarization_model_id = None
         self.embedding_model_id = None
         self.embedding_size = None
 
@@ -28,6 +29,9 @@ class CoHereProvider(LLMInterface):
     async def set_generation_model(self, model_id: str):
         self.generation_model_id = model_id
 
+    async def set_summarization_model(self, model_id: str):
+        self.summarization_model_id = model_id
+
     async def set_embedding_model(self, model_id: str, embedding_size: int):
         self.embedding_model_id = model_id
         self.embedding_size = embedding_size
@@ -35,34 +39,48 @@ class CoHereProvider(LLMInterface):
     async def process_text(self, text: str):
         return text[:self.default_max_input_characters].strip()
 
-    async def generate_text(self, prompt: str, chat_history: list=[], max_output_tokens: int=None, temperature: float = None):
-
+    async def _chat_completion(self, prompt: str, chat_history: list = [], 
+                               temperature: float = None, max_output_tokens: int = None,
+                               model_id: str = None):
+        """Common method for chat completion used by both generate_text and summarize_text"""
         if not self.client:
             self.logger.error("CoHere client was not set")
             return None
 
+        if not model_id:
+            self.logger.error("No model provided for chat completion")
+            return None
+        
+        try:
+            response = self.client.chat(
+                model=model_id,
+                chat_history=chat_history,
+                message=await self.process_text(prompt),
+                temperature=temperature or self.default_temperature,
+            )
+
+            if not response or not response.text:
+                self.logger.error("Error while generating text with CoHere")
+                return None
+            
+            return response.text
+        except Exception as e:
+            self.logger.error(f"Error in chat completion with CoHere: {str(e)}")
+            return None
+
+    async def generate_text(self, prompt: str, chat_history: list=[]):
         if not self.generation_model_id:
             self.logger.error("Generation model for CoHere was not set")
             return None
         
-        max_output_tokens = max_output_tokens if max_output_tokens else self.default_max_output_tokens
-        temperature = temperature if temperature else self.temperature
-
-        response = self.client.chat(
-            model = self.generation_model_id,
-            chat_history = chat_history,
-            message = await self.process_text(prompt),
-            temperature = temperature,
-            max_tokens = max_output_tokens
+        return await self._chat_completion(
+            prompt=prompt,
+            chat_history=chat_history,
+            model_id=self.generation_model_id
         )
 
-        if not response or not response.text:
-            self.logger.error("Error while generating text with CoHere")
-            return None
-        
-        return response.text
-
     async def embed_text(self, text: str, document_type: str = None):
+
         if not self.client:
             self.logger.error("CoHere client was not set")
             return None
@@ -87,6 +105,19 @@ class CoHereProvider(LLMInterface):
             return None
         
         return response.embeddings.float[0]
+
+    async def summarize_text(self, user_prompt: str, system_prompt: str = "", chat_history: list = []):
+
+        if not self.summarization_model_id:
+            self.logger.error("No model set for summarization with CoHere")
+            return None
+
+        return await self._chat_completion(
+            prompt=user_prompt,
+            chat_history=chat_history,
+            temperature=0.3,  # Lower temperature for more focused summarization
+            model_id=self.summarization_model_id
+        )
     
     async def construct_prompt(self, prompt: str, role: str):
         return {

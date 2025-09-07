@@ -29,7 +29,7 @@ class VDBController(BaseController):
             message="Vector DB not initialized"
         )
 
-    async def get_chunks(self, file_id: str, chunk_size: int = None, chunk_overlap: int = None):
+    async def get_chunks(self, file_id: str, file_content: list = None, chunk_size: int = None, chunk_overlap: int = None):
         """
         Extract and split file content into chunks.
         Returns a list of document chunks with text and metadata.
@@ -38,11 +38,10 @@ class VDBController(BaseController):
         chunk_size = self.app_settings.TEXT_CHUNK_SIZE if chunk_size is None else chunk_size
         chunk_overlap = self.app_settings.TEXT_CHUNK_OVERLAP if chunk_overlap is None else chunk_overlap
 
-        file_content = self.data_controller.get_file_content(file_id)
-        if not file_content:
-            logger.error(f"Could not extract content from file: {file_id}")
-            return []
-
+        if file_content is None:
+            logger.info(f"Extracting content for file: {file_id}")
+            file_content = self.data_controller.get_file_content(file_id)
+        
         try:
             splitter = RecursiveCharacterTextSplitter(
                 chunk_size=chunk_size, 
@@ -62,14 +61,15 @@ class VDBController(BaseController):
             logger.error(f"Error creating chunks from file {file_id}: {e}")
             return []
 
-    async def process_and_store_chunks(self, file_id: str, asset_id: str, 
-                                     chunk_size: int = None, chunk_overlap: int = None,
-                                     batch_size: int = 50):
+    async def process_and_store_chunks(self, file_id: str, asset_id: str,
+                                       file_content: list = None,
+                                       chunk_size: int = None, chunk_overlap: int = None,
+                                       batch_size: int = 50):
 
         try:
             # Extract and chunk content
             logger.info(f"Processing file {file_id} for asset {asset_id}")
-            chunks = await self.get_chunks(file_id, chunk_size, chunk_overlap)
+            chunks = await self.get_chunks(file_id, file_content, chunk_size, chunk_overlap)
             
             if not chunks:
                 return {

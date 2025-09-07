@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 import uvicorn
-from routes import base, chat, data
+from routes import base, chat, data, summary
 from stores.LLM import LLMFactory
 from stores.VectorDB import VDBFactory
 from stores.LLM.templates import TemplateParser
@@ -42,7 +42,11 @@ async def startup_db():
         app.embedding_client = llm_provider_factory.create(provider=settings.EMBEDDING_BACKEND)
         app.embedding_client.set_embedding_model(model_id=settings.EMBEDDING_MODEL_ID,
                                                 embedding_size=settings.EMBEDDING_SIZE)
-        
+
+        # summarization client
+        app.summarization_client = llm_provider_factory.create(provider=settings.SUMMARIZATION_BACKEND)
+        app.summarization_client.set_summarization_model(model_id=settings.SUMMARIZATION_MODEL_ID)
+
         # template parser
         app.template_parser = TemplateParser(lang=settings.PRIMARY_LANGUAGE,
                                             default_lang=settings.DEFAULT_LANGUAGE)
@@ -75,6 +79,7 @@ async def health_check():
 app.include_router(base.base_router)
 app.include_router(data.data_router)
 app.include_router(chat.chat_router)
+app.include_router(summary.summary_router)
 
 if __name__ == "__main__":
     uvicorn.run(
