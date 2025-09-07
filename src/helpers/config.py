@@ -20,18 +20,18 @@ class settings(BaseSettings):
     EMBEDDING_BACKEND: str
     SUMMARIZATION_BACKEND: str
 
-    OPENAI_API_KEY: str = None
-    OPENAI_API_URL: str = None
-    COHERE_API_KEY: str = None
-    GEMINI_API_KEY: str = None
+    OPENAI_API_KEY: str = ""
+    OPENAI_API_URL: str = ""
+    COHERE_API_KEY: str = ""
+    GEMINI_API_KEY: str = ""
 
-    GENERATION_MODEL_ID: str = None
-    SUMMARIZATION_MODEL_ID: str = None
-    EMBEDDING_MODEL_ID: str = None
-    EMBEDDING_SIZE: int = None
-    DEFAULT_MAX_INPUT_CHARACTERS: int = None
-    DEFAULT_MAX_OUTPUT_TOKENS: int = None
-    DEFAULT_TEMPERATURE: float = None
+    GENERATION_MODEL_ID: str = ""
+    SUMMARIZATION_MODEL_ID: str = ""
+    EMBEDDING_MODEL_ID: str = ""
+    EMBEDDING_SIZE: int = 384
+    DEFAULT_MAX_INPUT_CHARACTERS: int = 1024
+    DEFAULT_MAX_OUTPUT_TOKENS: int = 200
+    DEFAULT_TEMPERATURE: float = 0.1
 
     # Template settings
     DEFAULT_LANGUAGE: str = "ar"
