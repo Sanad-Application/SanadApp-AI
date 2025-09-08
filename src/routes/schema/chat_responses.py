@@ -6,9 +6,8 @@ class HealthResponse(BaseModel):
     initialized: bool
     message: str
 
-class AnswerResponse(BaseModel):
+class ChatResponse(BaseModel):
     success: bool
     message: str
     answer: Optional[str] = None
-    source_chunks: Optional[List[Dict[str, Any]]] = None
 

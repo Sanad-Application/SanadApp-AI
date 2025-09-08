@@ -26,9 +26,9 @@ async def startup_db():
     try:
         vdb_factory = VDBFactory()
         app.vdb_client = vdb_factory.create(settings.VECTOR_DB_BACKEND)
-        app.vdb_client.connect()
+        await app.vdb_client.connect()
 
-        if app.vdb_client.health_check():
+        if await app.vdb_client.health_check():
             logger.info("✅ Vector DB connection established and healthy")
         else:
             logger.warning("⚠️ Vector DB connection established but health check failed")
@@ -36,16 +36,16 @@ async def startup_db():
         # generation client
         llm_provider_factory = LLMFactory()
         app.generation_client = llm_provider_factory.create(provider=settings.GENERATION_BACKEND)
-        app.generation_client.set_generation_model(model_id = settings.GENERATION_MODEL_ID)
+        await app.generation_client.set_generation_model(generation_model_id=settings.GENERATION_MODEL_ID)
 
         # embedding client
         app.embedding_client = llm_provider_factory.create(provider=settings.EMBEDDING_BACKEND)
-        app.embedding_client.set_embedding_model(model_id=settings.EMBEDDING_MODEL_ID,
-                                                embedding_size=settings.EMBEDDING_SIZE)
+        await app.embedding_client.set_embedding_model(embedding_model_id=settings.EMBEDDING_MODEL_ID,
+                                                       embedding_size=settings.EMBEDDING_SIZE)
 
         # summarization client
         app.summarization_client = llm_provider_factory.create(provider=settings.SUMMARIZATION_BACKEND)
-        app.summarization_client.set_summarization_model(model_id=settings.SUMMARIZATION_MODEL_ID)
+        await app.summarization_client.set_summarization_model(summarization_model_id=settings.SUMMARIZATION_MODEL_ID)
 
         # template parser
         app.template_parser = TemplateParser(lang=settings.PRIMARY_LANGUAGE,
@@ -60,7 +60,7 @@ async def startup_db():
 @app.on_event("shutdown")
 async def shutdown_db():
     try:
-        app.vdb_client.disconnect()
+        await app.vdb_client.disconnect()
         logger.info("🛑 Vector DB connection closed successfully")
     except Exception as e:
         logger.error(f"❌ Error during shutdown: {e}")
@@ -71,7 +71,7 @@ async def shutdown_db():
 async def health_check():
     return {
         "status": "healthy",
-        "service": "LegalBot API",
+        "service": "SanadApp API",
         "version": "0.1.0"
     }
 

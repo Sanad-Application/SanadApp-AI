@@ -28,7 +28,7 @@ class settings(BaseSettings):
     GENERATION_MODEL_ID: str = ""
     SUMMARIZATION_MODEL_ID: str = ""
     EMBEDDING_MODEL_ID: str = ""
-    EMBEDDING_SIZE: int = 384
+    EMBEDDING_SIZE: int = 1024
     DEFAULT_MAX_INPUT_CHARACTERS: int = 1024
     DEFAULT_MAX_OUTPUT_TOKENS: int = 200
     DEFAULT_TEMPERATURE: float = 0.1
@@ -46,7 +46,7 @@ class settings(BaseSettings):
     VECTOR_DB_COLLECTION: str = "sanadapp"
 
     class Config:
-        env_file = ".env"
+        env_file = "src/.env"
 
 def get_settings():
     return settings()
