@@ -4,21 +4,31 @@ from .DataController import DataController
 from .LLMController import LLMController
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from routes.schema import *
+from stores.LLM import DocumentTypeEnum
 
 import logging
 logger = logging.getLogger(__name__)
 
 class VDBController(BaseController):
-    def __init__(self, vdb_provider=None):
+    def __init__(self, vdb_provider=None,
+                 embedding_provider=None,
+                 generate_provider=None,
+                 summarize_provider=None,
+                 template_parser=None):
+        
         super().__init__()
         self.project_path = self.get_project_path()
         self.vdb_provider = vdb_provider
-
-        self.llm_controller = LLMController()
         self.data_controller = DataController()
+        self.llm_controller = LLMController(
+            embedding_provider=embedding_provider,
+            generate_provider=generate_provider,
+            summarize_provider=summarize_provider,
+            template_parser=template_parser
+        )
 
-    def get_vdb_health(self) -> HealthResponse:
-        health_status = self.vdb_provider.health_check()
+    async def get_vdb_health(self) -> HealthResponse:
+        health_status = await self.vdb_provider.health_check()
         if health_status:
             return HealthResponse(
                 initialized=True,
@@ -40,7 +50,7 @@ class VDBController(BaseController):
 
         if file_content is None:
             logger.info(f"Extracting content for file: {file_id}")
-            file_content = self.data_controller.get_file_content(file_id)
+            file_content = await self.data_controller.get_file_content(file_id)
         
         try:
             splitter = RecursiveCharacterTextSplitter(
@@ -88,12 +98,16 @@ class VDBController(BaseController):
             for i in range(0, len(texts), batch_size):
                 batch_texts = texts[i:i + batch_size]
                 try:
-                    batch_embeddings = await self.llm_controller.get_embeddings_batch_async(batch_texts)
+                    batch_embeddings = await self.llm_controller.embed_text_batch(texts=batch_texts, document_type=DocumentTypeEnum.DOCUMENT.value)
+                    all_embeddings.extend(batch_embeddings)
+                    logger.info(f"Generated embeddings for batch {i//batch_size + 1}")
                 except Exception as e:
                     logger.error(f"Error generating embeddings for batch {i//batch_size + 1}: {e}")
-                    continue
-                all_embeddings.extend(batch_embeddings)
-                logger.info(f"Generated embeddings for batch {i//batch_size + 1}")
+                    raise   # Fail fast
+
+            print(f"Total embeddings generated: {len(all_embeddings)}")
+            print("----------")
+            print(f"Total texts processed: {len(texts)}")
 
             if not all_embeddings:
                 logger.error(f"No embeddings generated for file {file_id}")
@@ -104,21 +118,25 @@ class VDBController(BaseController):
                     "embeddings_count": 0,
                     "inserted_count": 0
                 }
+            if len(all_embeddings) != len(texts):
+                return {
+                    "success": False,
+                    "message": "Mismatch between embeddings and texts",
+                    "chunk_count": len(chunks),
+                    "embeddings_count": len(all_embeddings),
+                    "inserted_count": 0
+                }
+
             collection_name = self.app_settings.VECTOR_DB_COLLECTION
             
             # Ensure collection exists
-            if not self.vdb_provider.is_collection_exist(collection_name):
-                embedding_size = len(all_embeddings[0]) if all_embeddings else self.app_settings.EMBEDDING_SIZE
-                self.vdb_provider.create_collection(collection_name, embedding_size)
-            
+            if not await self.vdb_provider.is_collection_exist(collection_name):
+                embedding_size = self.app_settings.EMBEDDING_SIZE
+                await self.vdb_provider.create_collection(collection_name, embedding_size)
+
             # Prepare metadata for each chunk
             metadatas = []
-            chunk_ids = []
-            
-            for i, chunk in enumerate(chunks):
-                chunk_id = f"{file_id}_{i}"
-                chunk_ids.append(chunk_id)
-                
+            for i, chunk in enumerate(chunks):                
                 metadata = {
                     "chunk_index": i,
                     "file_id": file_id,
@@ -132,32 +150,24 @@ class VDBController(BaseController):
                 metadatas.append(metadata)
             
             # Store in vector DB
-            record_ids = self.vdb_provider.insert_many(
+            record_ids = await self.vdb_provider.insert_many(
                 collection_name=collection_name,
                 vectors=all_embeddings,
                 texts=texts,
-                record_ids=chunk_ids,
                 metadatas=metadatas,
                 batch_size=batch_size
             )
             
-            if record_ids:
-                logger.info(f"Successfully processed and stored {len(chunk_ids)} chunks for asset {asset_id}")
-                return {
-                    "success": True,
-                    "message": "File processed and stored successfully",
-                    "chunk_count": len(chunk_ids),
-                    "embeddings_count": len(all_embeddings),
-                    "inserted_count": len(record_ids)
-                }
-            else:
-                return {
-                    "success": False,
-                    "message": "Failed to store chunks in vector database",
-                    "chunk_count": len(chunk_ids),
-                    "embeddings_count": len(all_embeddings),
-                    "inserted_count": 0
-                }
+            inserted_count = len(record_ids) if record_ids else 0
+            success = inserted_count > 0
+
+            return {
+                "success": success,
+                "message": "File processed and stored successfully" if success else "Failed to store chunks",
+                "chunk_count": len(chunks),
+                "embeddings_count": len(all_embeddings),
+                "inserted_count": inserted_count
+            }
 
         except Exception as e:
             logger.error(f"Error in process_and_store_chunks: {e}")
@@ -178,18 +188,23 @@ class VDBController(BaseController):
             collection_name = self.app_settings.VECTOR_DB_COLLECTION
 
             # Generate query embedding
-            query_vector = await self.llm_controller.get_embedding_async(query)
+            query_vector = await self.llm_controller.embed_text(text=query, document_type=DocumentTypeEnum.QUERY.value)
 
             # Search in vector DB
-            results = self.vdb_provider.search(
+            results = await self.vdb_provider.search(
                 collection_name=collection_name,
                 query_vector=query_vector,
                 top_k=top_k,
             )
             if not results:
                 logger.info(f"No similar chunks found for query '{query}'")
-                return []
-
+                return {
+                    "success": True,
+                    "message": "No similar chunks found",
+                    "results": [],
+                    "count": 0
+                }
+            
             # Filter results by similarity threshold
             filtered_results = [
                 {
@@ -204,15 +219,24 @@ class VDBController(BaseController):
 
             logger.info(f"Found {len(filtered_results)} similar chunks for query '{query}'")
 
-            return filtered_results
-
+            return {
+                "success": True,
+                "message": "Successfully retrieved similar chunks",
+                "results": filtered_results,
+                "count": len(filtered_results)
+            }
         except Exception as e:
             logger.error(f"Error searching chunks: {e}")
-            raise HTTPException(status_code=500, detail=f"Controller error: {str(e)}")
+            return {
+                "success": False,
+                "message": str(e),
+                "results": [],
+                "count": 0
+            }
 
     async def delete_asset_chunks(self, collection_name: str, asset_id: str) -> DeleteAssetResponse:
 
-        result = self.vdb_provider.delete_asset_chunks(collection_name, asset_id)
+        result = await self.vdb_provider.delete_asset_chunks(collection_name, asset_id)
         return DeleteAssetResponse(
             success= result['success'],
             message= result['message'],
@@ -221,19 +245,19 @@ class VDBController(BaseController):
 
     async def delete_collection(self, collection_name: str) -> DeleteCollectionResponse:
 
-        result = self.vdb_provider.delete_collection(collection_name)
+        result = await self.vdb_provider.delete_collection(collection_name)
         return DeleteCollectionResponse(
             success= result['success'],
             message= result['message'],
             collection_name= collection_name
         )
 
-    def get_all_collections(self) -> CollectionsResponse:
+    async def get_all_collections(self) -> CollectionsResponse:
         """
         List all collections in the vector database.
         """
         try: 
-            collections = self.vdb_provider.get_all_collections()
+            collections = await self.vdb_provider.get_all_collections()
             return CollectionsResponse(
                 success=True,
                 message="Successfully retrieved all collections",
@@ -249,12 +273,12 @@ class VDBController(BaseController):
                 count=0
             )
 
-    def get_collection_info(self, collection_name: str) -> CollectionInfoResponse:
+    async def get_collection_info(self, collection_name: str) -> CollectionInfoResponse:
         """
         Get detailed info about a specific collection.
         """
         try:
-            info = self.vdb_provider.get_collection_info(collection_name)
+            info = await self.vdb_provider.get_collection_info(collection_name)
             if info:
                 return CollectionInfoResponse(
                     success=True,
