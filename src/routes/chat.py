@@ -11,47 +11,72 @@ chat_router = APIRouter(prefix="/chat", tags=["Chat"])
 @chat_router.get("/health", response_model= HealthResponse)
 async def get_vdb_health(request: Request):
         
-        vdb_controller = VDBController(request.app.vdb_client)
-        result = vdb_controller.get_vdb_health()
+        vdb_controller = VDBController(
+            vdb_provider=request.app.vdb_client,
+            embedding_provider=request.app.embedding_client,
+            generate_provider=request.app.generation_client,
+            summarize_provider=request.app.summarization_client,
+            template_parser=request.app.template_parser
+        )
+        result = await vdb_controller.get_vdb_health()
 
         status_code = 200 if result.initialized else 500
         return JSONResponse(content=result.dict(), status_code=status_code)
 
-@chat_router.post("/answer", response_model=AnswerResponse)
-async def generate_answer(request: Request, answer_request: AnswerRequest, app_settings: settings = Depends(get_settings)):
+@chat_router.post("/", response_model=ChatResponse)
+async def generate_answer(request: Request, chat_request: ChatRequest, app_settings: settings = Depends(get_settings)):
     """
     Generate text based on the provided prompt and chat history.
     """
     try:
-        vdb_controller = VDBController(request.app.vdb_client)
-        chunks_result = await vdb_controller.search_chunks(
-            query=answer_request.query,
+        vdb_controller = VDBController(
+            vdb_provider=request.app.vdb_client,
+            embedding_provider=request.app.embedding_client,
+            generate_provider=request.app.generation_client,
+            summarize_provider=request.app.summarization_client,
+            template_parser=request.app.template_parser
+        )
+        result = await vdb_controller.search_chunks(
+            query=chat_request.query,
             top_k=10,
             similarity_threshold=0.7
+        )
+
+        if not result.get("success", False):
+            return JSONResponse(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                content={
+                    "signal": "VDB search error",
+                    "message": result.get("message", "Unknown error"),
+                    "results": result.get("results", []),
+                    "count": result.get("count", 0)
+                }
             )
 
-        llm_controller = LLMController(request.app.embedding_client,
-                                       request.app.generation_client,
-                                       request.app.template_parser)
-        answer, full_prompt, chat_history = await llm_controller.generate_text(answer_request.query, chunks_result)
+        llm_controller = LLMController(
+            embedding_provider=request.app.embedding_client,
+            generate_provider=request.app.generation_client,
+            summarize_provider=request.app.summarization_client,
+            template_parser=request.app.template_parser
+        )
+        answer = await llm_controller.generate_text(
+            query=chat_request.query,
+            chunks_result=result.get("results", [])
+        )
 
         if not answer:
-            return JSONResponse(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    content={
-                        "signal": "RAG answer error"
-                    }
+            return ChatResponse(
+                success=False,
+                message="No answer generated from RAG process.",
+                answer=None
             )
-    
-        return JSONResponse(
-            content={
-                "signal": "RAG answer success",
-                "answer": answer,
-                "full_prompt": full_prompt,
-                "chat_history": chat_history
-            }
+
+        return ChatResponse(
+            success=True,
+            message="RAG answer generated successfully.",
+            answer=answer
         )
-    
+
     except HTTPException:
         raise
     except Exception as e:
