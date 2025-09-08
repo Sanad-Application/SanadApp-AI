@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, UploadFile, status, HTTPException
+from fastapi import APIRouter, Depends, UploadFile, status, HTTPException, Request
 from fastapi.responses import JSONResponse
 import aiofiles
 from helpers.config import get_settings, settings
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 data_router = APIRouter(prefix="/data", tags=["Data"])
 
 @data_router.post("/upload/", response_model=UploadResponse)
-async def upload_file(file: UploadFile, app_settings: settings = Depends(get_settings)):
+async def upload_file(file: UploadFile, request: Request, app_settings: settings = Depends(get_settings)):
     """Upload a file and return file information for processing."""
     
     data_controller = DataController()
@@ -36,7 +36,13 @@ async def upload_file(file: UploadFile, app_settings: settings = Depends(get_set
         # Generate a unique asset ID
         asset_id = str(uuid.uuid4())
 
-        vdb_controller = VDBController()
+        vdb_controller = VDBController(
+            vdb_provider=request.app.vdb_client,
+            embedding_provider=request.app.embedding_client,
+            generate_provider=request.app.generation_client,
+            summarize_provider=request.app.summarization_client,
+            template_parser=request.app.template_parser
+        )
         result = await vdb_controller.process_and_store_chunks(
             file_id=file_id,
             asset_id=asset_id,
@@ -64,10 +70,16 @@ async def upload_file(file: UploadFile, app_settings: settings = Depends(get_set
         raise HTTPException(status_code=500, detail=str(e))
 
 @data_router.delete("collections/{collection_name}/asset/{asset_id}", response_model=DeleteAssetResponse)
-async def delete_asset_chunks(collection_name: str, asset_id: str):
+async def delete_asset_chunks(request: Request, collection_name: str, asset_id: str):
     """Delete all chunks associated with an asset from collection."""
 
-    vdb_controller = VDBController()
+    vdb_controller = VDBController(
+        vdb_provider=request.app.vdb_client,
+        embedding_provider=request.app.embedding_client,
+        generate_provider=request.app.generation_client,
+        summarize_provider=request.app.summarization_client,
+        template_parser=request.app.template_parser
+    )
     result = await vdb_controller.delete_asset_chunks(collection_name, asset_id)
 
     if not result.success:
@@ -76,10 +88,16 @@ async def delete_asset_chunks(collection_name: str, asset_id: str):
     return result
 
 @data_router.delete("/collections/{collection_name}", response_model=DeleteCollectionResponse)
-async def delete_collection(collection_name: str):
+async def delete_collection(request: Request, collection_name: str):
     """Delete all chunks associated with a collection from vector DB."""
 
-    vdb_controller = VDBController()
+    vdb_controller = VDBController(
+        vdb_provider=request.app.vdb_client,
+        embedding_provider=request.app.embedding_client,
+        generate_provider=request.app.generation_client,
+        summarize_provider=request.app.summarization_client,
+        template_parser=request.app.template_parser
+    )
     result = await vdb_controller.delete_collection(collection_name)
 
     if not result.success:
@@ -88,9 +106,15 @@ async def delete_collection(collection_name: str):
     return result
 
 @data_router.get("/collections", response_model=CollectionsResponse)
-async def list_collections():
-    vdb_controller = VDBController()
-    result = vdb_controller.get_all_collections()
+async def list_collections(request: Request):
+    vdb_controller = VDBController(
+        vdb_provider=request.app.vdb_client,
+        embedding_provider=request.app.embedding_client,
+        generate_provider=request.app.generation_client,
+        summarize_provider=request.app.summarization_client,
+        template_parser=request.app.template_parser
+    )
+    result = await vdb_controller.get_all_collections()
 
     if not result.success:
         raise HTTPException(status_code=500, detail=result.message)
@@ -98,10 +122,16 @@ async def list_collections():
     return result
 
 @data_router.get("/collections/{collection_name}", response_model=CollectionInfoResponse)
-async def get_collection_info(collection_name: str):
+async def get_collection_info(request: Request, collection_name: str):
 
-    vdb_controller = VDBController()
-    result = vdb_controller.get_collection_info(collection_name)
+    vdb_controller = VDBController(
+        vdb_provider=request.app.vdb_client,
+        embedding_provider=request.app.embedding_client,
+        generate_provider=request.app.generation_client,
+        summarize_provider=request.app.summarization_client,
+        template_parser=request.app.template_parser
+    )
+    result = await vdb_controller.get_collection_info(collection_name)
 
     if not result.success:
         raise HTTPException(status_code=500, detail=result.message)

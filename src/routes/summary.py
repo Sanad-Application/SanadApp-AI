@@ -27,7 +27,6 @@ async def summarize_text(
         
         # Generate summary
         summary = await llm_controller.summarize_text(summary_request.text)
-
         logger.info(f"Text summarized successfully.")
 
         return SummaryResponse(
@@ -42,7 +41,7 @@ async def summarize_text(
         logger.error(f"Error summarizing text: {e}")
         raise HTTPException(status_code=500, detail=f"Error summarizing text: {str(e)}")
 
-@summary_router.post("/file/upload", response_model=SummaryResponse)
+@summary_router.post("/file/", response_model=SummaryResponse)
 async def summarize_uploaded_file(
     file: UploadFile,
     request: Request,
@@ -52,7 +51,13 @@ async def summarize_uploaded_file(
     try:
         # Initialize controllers
         data_controller = DataController()
-        vdb_controller = VDBController(request.app.vector_db_client)
+        vdb_controller = VDBController(
+            vdb_provider=request.app.vdb_client,
+            embedding_provider=request.app.embedding_client,
+            generate_provider=request.app.generation_client,
+            summarize_provider=request.app.summarization_client,
+            template_parser=request.app.template_parser
+        )        
         llm_controller = LLMController(
             embedding_provider=request.app.embedding_client,
             generate_provider=request.app.generation_client,
@@ -72,11 +77,14 @@ async def summarize_uploaded_file(
         file_path, file_id = data_controller.get_file_path(filename=file.filename)
         
         async with aiofiles.open(file_path, "wb") as f:
-            while chunk := await file.read(app_settings.PDF_CHUNK_SIZE):
+            while True:
+                chunk = await file.read(app_settings.PDF_CHUNK_SIZE)
+                if not chunk:
+                    break
                 await f.write(chunk)
         
         # Extract text content
-        file_content = data_controller.get_file_content(file_id)
+        file_content = await data_controller.get_file_content(file_id)
         if not file_content:
             raise HTTPException(status_code=400, detail="Could not extract text from file")
         
@@ -100,8 +108,7 @@ async def summarize_uploaded_file(
             success=True,
             message="File summarized successfully",
             summary=summary,
-            original_text_length=len(full_text),
-            summary_length=len(summary),
+            asset_id=asset_id,
             file_name=file.filename
         )
         
