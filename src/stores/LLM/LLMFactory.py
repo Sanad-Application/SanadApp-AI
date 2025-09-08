@@ -12,10 +12,9 @@ class LLMFactory:
         if provider == LLMModel.OPENAI.value:
             return OpenAIProvider(
                 api_key = settings.OPENAI_API_KEY,
-                api_url = settings.OPENAI_API_URL,
                 default_max_input_characters=settings.DEFAULT_MAX_INPUT_CHARACTERS,
                 default_max_output_tokens=settings.DEFAULT_MAX_OUTPUT_TOKENS,
-                temperature=settings.DEFAULT_TEMPERATURE
+                default_temperature=settings.DEFAULT_TEMPERATURE
             )
 
         if provider == LLMModel.COHERE.value:
@@ -23,7 +22,7 @@ class LLMFactory:
                 api_key = settings.COHERE_API_KEY,
                 default_max_input_characters=settings.DEFAULT_MAX_INPUT_CHARACTERS,
                 default_max_output_tokens=settings.DEFAULT_MAX_OUTPUT_TOKENS,
-                temperature=settings.DEFAULT_TEMPERATURE
+                default_temperature=settings.DEFAULT_TEMPERATURE
             )
 
         if provider == LLMModel.GEMINI.value:
@@ -31,7 +30,7 @@ class LLMFactory:
                 api_key = settings.GEMINI_API_KEY,
                 default_max_input_characters=settings.DEFAULT_MAX_INPUT_CHARACTERS,
                 default_max_output_tokens=settings.DEFAULT_MAX_OUTPUT_TOKENS,
-                temperature=settings.DEFAULT_TEMPERATURE
+                default_temperature=settings.DEFAULT_TEMPERATURE
             )
 
         return None

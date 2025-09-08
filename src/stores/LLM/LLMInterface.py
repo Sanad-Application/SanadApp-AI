@@ -19,7 +19,7 @@ class LLMInterface(ABC):
         pass
 
     @abstractmethod
-    async def generate_text(self, prompt: str, chat_history: list = []):
+    async def generate_text(self, user_prompt: str, system_prompt: str = ""):
         pass
 
     @abstractmethod
@@ -27,7 +27,7 @@ class LLMInterface(ABC):
         pass
 
     @abstractmethod
-    async def summarize_text(self, user_prompt: str, system_prompt: str = "", chat_history: list = []):
+    async def summarize_text(self, user_prompt: str, system_prompt: str = ""):
         pass
 
     @abstractmethod
