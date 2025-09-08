@@ -1,6 +1,7 @@
 from .BaseController import BaseController
 from fastapi import UploadFile, File
 from langchain_community.document_loaders import PyMuPDFLoader, TextLoader
+import asyncio
 import os, re
 
 import logging
@@ -35,30 +36,28 @@ class DataController(BaseController):
             return self.get_file_path(filename=filename)
         
         return file_path, f"{random_key}_{clean_filename}"
-    
 
-    def get_file_content(self, file_id: str):
+    async def get_file_content(self, file_id: str):
         file_ext = os.path.splitext(file_id)[1]
         file_path = os.path.join(self.project_path, file_id)
 
         if not os.path.exists(file_path):
             logger.error(f"File not found: {file_id}")
             return None
-        
+
         try:
             if file_ext == '.txt':
                 loader = TextLoader(file_path, encoding="utf-8")
-                return loader.load()
+                return await asyncio.to_thread(loader.load)
 
             elif file_ext == '.pdf':
                 loader = PyMuPDFLoader(file_path)
-                return loader.load()
-            
+                return await asyncio.to_thread(loader.load)
+
             else:
                 logger.warning(f"Unsupported file type: {file_ext}")
                 return None
-                
+
         except Exception as e:
             logger.error(f"Error loading file {file_id}: {e}")
             return None
-    

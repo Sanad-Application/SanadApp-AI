@@ -7,13 +7,11 @@ import logging
 class OpenAIProvider(LLMInterface):
     def __init__(self,
                 api_key: str,
-                api_url: str = None,
-                default_max_input_characters: int=1000,
+                default_max_input_characters: int = 1000,
                 default_max_output_tokens: int = 1000, 
                 default_temperature: float = 0.5):
         
         self.api_key = api_key
-        self.api_url = api_url
         self.default_max_output_tokens = default_max_output_tokens
         self.default_max_input_characters = default_max_input_characters
         self.default_temperature = default_temperature
@@ -25,7 +23,7 @@ class OpenAIProvider(LLMInterface):
 
         self.enums = OpenAIEnums
 
-        self.client = OpenAI(api_key=api_key, api_base=api_url)
+        self.client = OpenAI(api_key=api_key)
 
         self.logger = logging.getLogger(__name__)
 
@@ -43,9 +41,9 @@ class OpenAIProvider(LLMInterface):
     async def process_text(self, text: str):
         return text[:self.default_max_input_characters].strip()
 
-    async def _chat_completion(self, prompt: str, chat_history: list = [], 
+    async def _chat_completion(self, user_prompt: str, system_prompt: str, model_id: str,
                                temperature: float = None, max_output_tokens:int = None,
-                               model_id: str = None):
+                               ):
         """Common method for chat completion used by both generate_text and summarize_text"""
         if self.client is None:
             self.logger.error("OpenAI client is not initialized.")
@@ -56,14 +54,21 @@ class OpenAIProvider(LLMInterface):
             return None
 
         try:
-            # Make a copy of chat_history to avoid modifying the original
-            messages = chat_history.copy()
-            messages.append(await self.construct_prompt(prompt, self.enums.USER.value))
-
+            messages = [
+                await self.construct_prompt(
+                    prompt=system_prompt,
+                    role=self.enums.SYSTEM.value
+                ),
+                await self.construct_prompt(
+                    prompt=user_prompt,
+                    role=self.enums.USER.value
+                )
+            ]
             response = self.client.chat.completions.create(
                 model=model_id,
                 messages=messages,
-                temperature=temperature or self.default_temperature
+                temperature=temperature or self.default_temperature,
+                max_tokens=max_output_tokens or self.default_max_output_tokens,
             )
 
             if not response or not response.choices or len(response.choices) == 0 or not response.choices[0].message:
@@ -75,18 +80,18 @@ class OpenAIProvider(LLMInterface):
             self.logger.error(f"Error in chat completion with OpenAI: {str(e)}")
             return None
 
-    async def generate_text(self, prompt: str, chat_history: list = []):
+    async def generate_text(self, user_prompt: str, system_prompt: str):
         if self.generation_model_id is None:
             self.logger.error("Generation model ID is not set.")
             return None
 
         return await self._chat_completion(
-            prompt=prompt,
-            chat_history=chat_history,
+            user_prompt=user_prompt,
+            system_prompt=system_prompt,
             model_id=self.generation_model_id
         )
 
-    async def embed_text(self, text: str, embedding_size: int = None):
+    async def embed_text(self, text: str, document_type: str = None):
         if self.embedding_model_id is None:
             self.logger.error("Embedding model ID is not set.")
             return None
@@ -98,6 +103,7 @@ class OpenAIProvider(LLMInterface):
         response = self.client.embeddings.create(
             input=text,
             model=self.embedding_model_id,
+            dimensions=self.embedding_size
             )
         
         if not response or not response.data or len(response.data) == 0 or not response.data[0].embedding:
@@ -106,7 +112,7 @@ class OpenAIProvider(LLMInterface):
         
         return response.data[0].embedding
     
-    async def summarize_text(self, user_prompt: str, system_prompt: str = "", chat_history: list = []):
+    async def summarize_text(self, user_prompt: str, system_prompt: str):
 
         if self.summarization_model_id is None:
             self.logger.error("Summary model ID is not set.")
@@ -114,7 +120,7 @@ class OpenAIProvider(LLMInterface):
 
         return await self._chat_completion(
             prompt=user_prompt,
-            chat_history=chat_history,
+            system_prompt=system_prompt,
             temperature=0.3,  # Lower temperature for more focused summarization
             model_id=self.summarization_model_id
         )

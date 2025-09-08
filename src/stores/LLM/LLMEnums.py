@@ -5,7 +5,6 @@ class LLMModel(Enum):
     COHERE="cohere"
     GEMINI="gemini"
 
-
 class OpenAIEnums(Enum):
     SYSTEM = "system"
     USER = "user"
@@ -21,8 +20,8 @@ class CoHereEnums(Enum):
 
 class GeminiEnums(Enum):
     USER = "user"
-    MODEL = "model"
-    
+    ASSISTANT = "model"
+
     DOCUMENT = "retrieval_document"
     QUERY = "retrieval_query"
 
