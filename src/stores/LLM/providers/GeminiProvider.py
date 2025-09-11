@@ -67,7 +67,7 @@ class GeminiProvider(LLMInterface):
             self.logger.error(f"Error in chat completion with Gemini: {str(e)}")
             return None
 
-    async def generate_text(self, user_prompt: str, system_prompt: str):
+    async def generate_text(self, user_prompt: str, system_prompt: str, temperature: float = None, max_output_tokens: int = None):
         if not self.generation_model_id:
             self.logger.error("Generation model for Gemini was not set")
             return None
@@ -75,7 +75,9 @@ class GeminiProvider(LLMInterface):
         return await self._chat_completion(
             user_prompt=user_prompt,
             system_prompt=system_prompt,
-            model_id=self.generation_model_id
+            model_id=self.generation_model_id,
+            temperature=temperature,
+            max_output_tokens=max_output_tokens
         )
 
     async def embed_text(self, text: str, document_type: str = None):
@@ -107,22 +109,23 @@ class GeminiProvider(LLMInterface):
             self.logger.error(f"Error embedding text with Gemini: {str(e)}")
             return None
 
-    async def summarize_text(self, user_prompt: str, system_prompt: str = ""):
+    async def summarize_text(self, user_prompt: str, system_prompt: str = "", temperature: float = None, max_output_tokens: int = None):
         if not self.summarization_model_id:
             self.logger.error("No model set for summarization with Gemini")
             return None
         try:
             config = GenerateContentConfig(
                 system_instruction=system_prompt,
-                temperature=0.3,  # Lower temperature for more focused summarization
-                max_output_tokens=self.default_max_output_tokens
-            )   
+                temperature=temperature,
+                max_output_tokens=max_output_tokens
+            )
 
             summary = await self.client.aio.models.generate_content(
                 model=self.summarization_model_id,
                 contents=user_prompt,
                 config=config
             )
+            print(summary)
             return summary.text
         
         except Exception as e:
@@ -132,5 +135,5 @@ class GeminiProvider(LLMInterface):
     async def construct_prompt(self, prompt: str, role: str):
         return {
             "role": role,
-            "parts": [await self.process_text(prompt)]
+            "parts": prompt
         }

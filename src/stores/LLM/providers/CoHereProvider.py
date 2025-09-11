@@ -73,7 +73,7 @@ class CoHereProvider(LLMInterface):
             self.logger.error(f"Error in chat completion with CoHere: {str(e)}")
             return None
 
-    async def generate_text(self, user_prompt: str, system_prompt: str):
+    async def generate_text(self, user_prompt: str, system_prompt: str, temperature: float = None, max_output_tokens: int = None):
         if not self.generation_model_id:
             self.logger.error("Generation model for CoHere was not set")
             return None
@@ -81,7 +81,9 @@ class CoHereProvider(LLMInterface):
         return await self._chat_completion(
             user_prompt=user_prompt,
             system_prompt=system_prompt,
-            model_id=self.generation_model_id
+            model_id=self.generation_model_id,
+            temperature=temperature,
+            max_output_tokens=max_output_tokens
         )
 
     async def embed_text(self, text: str, document_type: str = None):
@@ -111,7 +113,7 @@ class CoHereProvider(LLMInterface):
         
         return response.embeddings.float[0]
 
-    async def summarize_text(self, user_prompt: str, system_prompt: str):
+    async def summarize_text(self, user_prompt: str, system_prompt: str, temperature: float = None, max_output_tokens: int = None):
 
         if not self.summarization_model_id:
             self.logger.error("No model set for summarization with CoHere")
@@ -121,7 +123,8 @@ class CoHereProvider(LLMInterface):
             user_prompt=user_prompt,
             system_prompt=system_prompt,
             model_id=self.summarization_model_id,
-            temperature=0.3  # Lower temperature for more focused summarization
+            temperature=temperature,
+            max_output_tokens=max_output_tokens
         )
     
     async def construct_prompt(self, prompt: str, role: str):

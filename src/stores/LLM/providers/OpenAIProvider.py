@@ -80,7 +80,7 @@ class OpenAIProvider(LLMInterface):
             self.logger.error(f"Error in chat completion with OpenAI: {str(e)}")
             return None
 
-    async def generate_text(self, user_prompt: str, system_prompt: str):
+    async def generate_text(self, user_prompt: str, system_prompt: str, temperature: float = None, max_output_tokens: int = None):
         if self.generation_model_id is None:
             self.logger.error("Generation model ID is not set.")
             return None
@@ -88,7 +88,9 @@ class OpenAIProvider(LLMInterface):
         return await self._chat_completion(
             user_prompt=user_prompt,
             system_prompt=system_prompt,
-            model_id=self.generation_model_id
+            model_id=self.generation_model_id,
+            temperature=temperature,
+            max_output_tokens=max_output_tokens
         )
 
     async def embed_text(self, text: str, document_type: str = None):
@@ -112,7 +114,7 @@ class OpenAIProvider(LLMInterface):
         
         return response.data[0].embedding
     
-    async def summarize_text(self, user_prompt: str, system_prompt: str):
+    async def summarize_text(self, user_prompt: str, system_prompt: str, temperature: float = None, max_output_tokens: int = None):
 
         if self.summarization_model_id is None:
             self.logger.error("Summary model ID is not set.")
@@ -121,8 +123,9 @@ class OpenAIProvider(LLMInterface):
         return await self._chat_completion(
             prompt=user_prompt,
             system_prompt=system_prompt,
-            temperature=0.3,  # Lower temperature for more focused summarization
-            model_id=self.summarization_model_id
+            model_id=self.summarization_model_id,
+            temperature=temperature,
+            max_output_tokens=max_output_tokens
         )
 
     async def construct_prompt(self, prompt: str, role: str):
