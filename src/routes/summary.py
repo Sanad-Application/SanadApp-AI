@@ -33,8 +33,6 @@ async def summarize_text(
             success=True,
             message="Text summarized successfully",
             summary=summary,
-            original_text_length=len(summary_request.text),
-            summary_length=len(summary)
         )
         
     except Exception as e:
@@ -107,9 +105,7 @@ async def summarize_uploaded_file(
         return SummaryResponse(
             success=True,
             message="File summarized successfully",
-            summary=summary,
-            asset_id=asset_id,
-            file_name=file.filename
+            summary=summary
         )
         
     except Exception as e:

@@ -54,7 +54,9 @@ class LLMController(BaseController):
             # Retrieve the Answer
             answer = await self.generate_provider.generate_text(
                 user_prompt=user_prompt,
-                system_prompt=system_prompt
+                system_prompt=system_prompt,
+                temperature=0.7,
+                max_output_tokens=1024
             )
 
             return answer
@@ -73,6 +75,8 @@ class LLMController(BaseController):
             return await self.summarize_provider.summarize_text(
                 user_prompt=user_prompt,
                 system_prompt=system_prompt,
+                temperature=0.3,
+                max_output_tokens=3000
             )
 
         except Exception as e:
